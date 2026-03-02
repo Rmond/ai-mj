@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI麻将 · 全弃牌记录 · 吃牌可选 · 暗杠七对 (Cloudflare)</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+        body {
+            background: #1a3524;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0;
+            padding: 16px;
+            font-family: 'Segoe UI', 'Noto Sans', system-ui;
+        }
+        .table {
+            max-width: 1500px;
+            width: 100%;
+            background: #2a6040;
+            border-radius: 80px 80px 60px 60px;
+            padding: 30px 20px;
+            border: 12px solid #c9a15b;
+            box-shadow: 0 20px 30px black;
+        }
+        .grid-positions {
+            display: grid;
+            grid-template-columns: 1fr 1.3fr 1fr;
+            grid-template-rows: auto auto auto;
+            gap: 20px;
+        }
+        .player-card {
+            background: #2a6b42;
+            border-radius: 50px;
+            padding: 20px 15px;
+            border: 4px solid #eac880;
+            box-shadow: 0 10px 0 #1a4528;
+            position: relative;
+        }
+        .ai-card {
+            background: #1d5433;
+        }
+        .player-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            position: relative;
+        }
+        .avatar {
+            width: 60px;
+            height: 60px;
+            background: #b58a4a;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            border: 3px solid #ffe5aa;
+            box-shadow: 0 5px 0 #6f4f2a;
+        }
+        .flower-area {
+            background: #3f2f1c;
+            border-radius: 30px;
+            padding: 5px 15px;
+            color: #ffecb3;
+            font-size: 1.3rem;
+            margin: 8px 0;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .meld-area {
+            background: #2b4f2b;
+            border-radius: 30px;
+            padding: 5px 15px;
+            margin: 8px 0;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            border: 2px solid #d4a15e;
+        }
+        .hand-count {
+            background: #0d2e18;
+            padding: 5px 18px;
+            border-radius: 40px;
+            color: #ffde9e;
+            font-size: 1.3rem;
+            font-weight: bold;
+            margin-left: auto;
+        }
+        .hand-tiles {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+            margin: 15px 0;
+        }
+        .tile-btn {
+            background: #fff7e6;
+            border: 2px solid #b57a3a;
+            font-size: 2rem;
+            font-family: 'KaiTi', '楷体', serif;
+            padding: 8px 0;
+            width: 80px;
+            border-radius: 20px 20px 10px 10px;
+            box-shadow: 0 6px 0 #7b5530;
+            color: #1f442f;
+            cursor: pointer;
+            transition: 0.05s;
+        }
+        .tile-btn:active { transform: translateY(6px); box-shadow: 0 2px 0 #7b5530; }
+        .tile-btn:disabled { opacity: 0.4; transform: translateY(3px); pointer-events: none; }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin: 10px 0 5px;
+        }
+        .action-btn {
+            background: #f3cf8e;
+            border: none;
+            font-size: 1.8rem;
+            padding: 8px 25px;
+            border-radius: 40px;
+            font-weight: bold;
+            color: #1f4020;
+            box-shadow: 0 5px 0 #9e753b;
+            cursor: pointer;
+        }
+        .action-btn:active { transform: translateY(5px); box-shadow: none; }
+        .action-btn:disabled { opacity: 0.3; transform: none; pointer-events: none; }
+
+        .center-area {
+            background: #3a7553;
+            border-radius: 80px;
+            padding: 30px 20px;
+            border: 5px solid #f5cf94;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .public-discard {
+            background: #235234;
+            border-radius: 60px;
+            padding: 15px 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px 10px;
+            justify-content: center;
+            border: 3px solid #ffd58c;
+            min-height: 90px;
+        }
+        .status-bar {
+            color: #fbeecc;
+            font-size: 2rem;
+            margin-bottom: 15px;
+            display: flex;
+            gap: 40px;
+            align-items: center;
+        }
+        .tile {
+            background: #fcf2da;
+            border-radius: 12px 12px 6px 6px;
+            padding: 4px 12px;
+            font-size: 1.3rem;
+            font-family: 'KaiTi', '楷体', serif;
+            color: #2d4a2d;
+            border: 2px solid #b57932;
+            box-shadow: 0 3px 0 #735530;
+            min-width: 45px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .tile.small {
+            font-size: 1.1rem;
+            padding: 2px 8px;
+            min-width: 35px;
+        }
+        .config-popup {
+            position: absolute;
+            top: 70px;
+            left: 20px;
+            background: #3e734c;
+            border: 4px solid #eec174;
+            border-radius: 40px;
+            padding: 20px;
+            width: 260px;
+            z-index: 200;
+            box-shadow: 0 15px 25px black;
+            display: none;
+        }
+        .config-popup input {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0;
+            border-radius: 40px;
+            border: 2px solid #b18b44;
+            background: #fdf3da;
+            font-size: 1rem;
+        }
+        .save-config {
+            background: #ffd571;
+            border: none;
+            padding: 12px;
+            width: 100%;
+            border-radius: 40px;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+        .footer { color: #dcc386; text-align: center; margin-top: 20px; }
+        .restart-btn {
+            background: #e3b37c;
+            border: none;
+            font-size: 1.5rem;
+            padding: 8px 25px;
+            border-radius: 40px;
+            font-weight: bold;
+            color: #1f4020;
+            box-shadow: 0 5px 0 #9e753b;
+            cursor: pointer;
+            margin-left: 20px;
+        }
+        .restart-btn:active { transform: translateY(5px); box-shadow: none; }
+    </style>
+</head>
+<body>
+<div class="table" id="app">
+    <!-- 棋牌网格 -->
+    <div class="grid-positions">
+        <!-- 上方 AI-2 (对家) -->
+        <div style="grid-area: 1/2/2/3;">
+            <div class="player-card ai-card" id="ai2card">
+                <div class="player-header" id="ai2header">
+                    <span class="avatar">🤖2</span>
+                    <span class="hand-count" id="ai2count">13</span>
+                </div>
+                <div class="flower-area" id="ai2flower"></div>
+                <div class="meld-area" id="ai2meld"></div>
+            </div>
+        </div>
+        <!-- 左方 AI-3 (上家) -->
+        <div style="grid-area: 2/1/3/2;">
+            <div class="player-card ai-card" id="ai3card">
+                <div class="player-header" id="ai3header">
+                    <span class="avatar">🤖3</span>
+                    <span class="hand-count" id="ai3count">13</span>
+                </div>
+                <div class="flower-area" id="ai3flower"></div>
+                <div class="meld-area" id="ai3meld"></div>
+            </div>
+        </div>
+        <!-- 中央弃牌区 & 状态 -->
+        <div style="grid-area: 2/2/3/3;">
+            <div class="center-area">
+                <div class="status-bar">
+                    <span>🀫 <span id="deckCount">0</span></span>
+                    <span id="turnText">等待开始</span>
+                    <button class="restart-btn" id="restartBtn">🔄 重新开始</button>
+                </div>
+                <div class="public-discard" id="publicDiscards"></div>
+            </div>
+        </div>
+        <!-- 右方 AI-1 (下家) -->
+        <div style="grid-area: 2/3/3/4;">
+            <div class="player-card ai-card" id="ai1card">
+                <div class="player-header" id="ai1header">
+                    <span class="avatar">🤖1</span>
+                    <span class="hand-count" id="ai1count">13</span>
+                </div>
+                <div class="flower-area" id="ai1flower"></div>
+                <div class="meld-area" id="ai1meld"></div>
+            </div>
+        </div>
+        <!-- 下方 玩家 -->
+        <div style="grid-area: 3/2/4/3;">
+            <div class="player-card" id="playerCard">
+                <div class="player-header">
+                    <span class="avatar">🧑</span>
+                    <span class="hand-count" id="playerCount">13</span>
+                </div>
+                <div class="flower-area" id="playerFlower"></div>
+                <div class="meld-area" id="playerMeld"></div>
+                <!-- 玩家操作按钮区 -->
+                <div class="action-buttons" id="playerActions">
+                    <button class="action-btn" id="chiBtn" disabled>吃</button>
+                    <button class="action-btn" id="pengBtn" disabled>碰</button>
+                    <button class="action-btn" id="gangBtn" disabled>杠</button>
+                    <button class="action-btn" id="huBtn" disabled>胡</button>
+                    <button class="action-btn" id="passBtn" disabled>过</button>
+                </div>
+                <!-- 玩家手牌 -->
+                <div class="hand-tiles" id="playerHand"></div>
+            </div>
+        </div>
+    </div>
+    <div class="footer">🀇 全弃牌记录 · 暗杠七对 · 吃牌可选 · 无倒计时</div>
+    <!-- 配置弹窗容器 -->
+    <div id="popupContainer"></div>
+</div>
+<script>
+(function(){
+    // ---------- 牌库 ----------
+    const NORMAL_TILES = [
+        '1万','2万','3万','4万','5万','6万','7万','8万','9万',
+        '1筒','2筒','3筒','4筒','5筒','6筒','7筒','8筒','9筒',
+        '1条','2条','3条','4条','5条','6条','7条','8条','9条',
+        '东','南','西','北','白','发','中'
+    ]; // 每种4张
+    const FLOWER_TILES = ['春','夏','秋','冬','梅','兰','竹','菊']; // 8种花，每种1张
+    const ZI_TILES = ['东','南','西','北','白','发','中']; // 字牌
+
+    // 构建完整牌堆 (普通牌各4，花牌各1)
+    let allTiles = [];
+    NORMAL_TILES.forEach(t => { for(let i=0;i<4;i++) allTiles.push(t); });
+    FLOWER_TILES.forEach(t => allTiles.push(t)); // 花牌各1张共8张
+
+    // 游戏状态
+    let deck = [];                     // 牌堆 (剩余)
+    let playersHand = [[], [], [], []]; // 手牌 (0玩家,1AI1,2AI2,3AI3)
+    let playersFlower = [[], [], [], []]; // 摸到的花牌
+    let playersMeld = [[], [], [], []];   // 副露
+    let publicDiscard = [];             // 公共弃牌区 (仅牌)
+    let discardHistory = [];             // 弃牌历史 {player, tile} 用于AI
+    let currentPlayer = 0;              // 0玩家,1AI1,2AI2,3AI3
+    let gameActive = false;
+    let waitingForAI = false;
+    let actionRequired = false;         // 玩家是否需要响应吃碰胡
+    let lastDiscard = null;             // 最近打出的牌
+    let lastDiscardBy = -1;
+
+    // AI配置
+    let aiConfig = { 1: { url: '', model: '', key: '' }, 2: { url: '', model: '', key: '' }, 3: { url: '', model: '', key: '' } };
+
+    // DOM 元素
+    const deckCountSpan = document.getElementById('deckCount');
+    const turnText = document.getElementById('turnText');
+    const publicDiscardDiv = document.getElementById('publicDiscards');
+    const playerHandDiv = document.getElementById('playerHand');
+    const playerCountSpan = document.getElementById('playerCount');
+    const playerFlowerDiv = document.getElementById('playerFlower');
+    const playerMeldDiv = document.getElementById('playerMeld');
+    const restartBtn = document.getElementById('restartBtn');
+    const aiCount = [null, document.getElementById('ai1count'), document.getElementById('ai2count'), document.getElementById('ai3count')];
+    const aiFlower = [null, document.getElementById('ai1flower'), document.getElementById('ai2flower'), document.getElementById('ai3flower')];
+    const aiMeld = [null, document.getElementById('ai1meld'), document.getElementById('ai2meld'), document.getElementById('ai3meld')];
+    const actionBtns = {
+        chi: document.getElementById('chiBtn'),
+        peng: document.getElementById('pengBtn'),
+        gang: document.getElementById('gangBtn'),
+        hu: document.getElementById('huBtn'),
+        pass: document.getElementById('passBtn')
+    };
+
+    // 玩家称谓映射
+    const playerNames = ['你', '下家', '对家', '上家'];
+
+    // 工具: 洗牌
+    function shuffle(arr) {
+        for(let i=arr.length-1;i>0;i--) {
+            const j = Math.floor(Math.random()*(i+1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+    }
+
+    // 初始化牌堆
+    function initDeck() {
+        deck = shuffle([...allTiles]);
+    }
+
+    // 排序手牌 (按自定义顺序)
+    function sortHand(hand) {
+        const order = [
+            '1万','2万','3万','4万','5万','6万','7万','8万','9万',
+            '1筒','2筒','3筒','4筒','5筒','6筒','7筒','8筒','9筒',
+            '1条','2条','3条','4条','5条','6条','7条','8条','9条',
+            '东','南','西','北','白','发','中','春','夏','秋','冬','梅','兰','竹','菊'
+        ];
+        hand.sort((a,b) => order.indexOf(a) - order.indexOf(b));
+    }
+
+    // 发牌 (每人13张)
+    function deal() {
+        for(let i=0;i<4;i++) {
+            playersHand[i] = [];
+            playersFlower[i] = [];
+            playersMeld[i] = [];
+        }
+        for(let i=0;i<13;i++) {
+            for(let p=0;p<4;p++) {
+                if(deck.length) playersHand[p].push(deck.pop());
+            }
+        }
+        // 处理起手花牌
+        for(let p=0;p<4;p++) {
+            replaceFlowersInHand(p);
+            sortHand(playersHand[p]); // 起手排序
+        }
+    }
+
+    // 置换玩家p手中的花牌
+    function replaceFlowersInHand(p) {
+        let i = 0;
+        while(i < playersHand[p].length) {
+            const tile = playersHand[p][i];
+            if(FLOWER_TILES.includes(tile)) {
+                playersFlower[p].push(tile);
+                playersHand[p].splice(i,1);
+                if(deck.length) {
+                    const newTile = deck.pop();
+                    playersHand[p].push(newTile);
+                    // 继续检查新牌
+                } else {
+                    break;
+            }
+            } else {
+                i++;
+            }
+        }
+    }
+
+    // 摸牌 (返回摸到的非花牌，若花牌则递归置换)
+    function drawCardForPlayer(p) {
+        if(deck.length === 0) return null;
+        let tile = deck.pop();
+        while(FLOWER_TILES.includes(tile)) {
+            playersFlower[p].push(tile);
+            if(deck.length === 0) {
+                tile = null;
+                break;
+            }
+            tile = deck.pop();
+        }
+        return tile;
+    }
+
+    // ================= 胡牌检测 =================
+    function parseTile(t) {
+        if (ZI_TILES.includes(t)) {
+            return { type: 'zi', name: t };
+        } else {
+            const num = parseInt(t[0]);
+            const suit = t[1];
+            return { type: 'number', num, suit };
+        }
+    }
+
+    function isQiDui(tiles) {
+        if (tiles.length !== 14) return false;
+        const countMap = new Map();
+        for (let t of tiles) {
+            countMap.set(t, (countMap.get(t) || 0) + 1);
+        }
+        for (let cnt of countMap.values()) {
+            if (cnt !== 2) return false;
+        }
+        return true;
+    }
+
+    function canHu(hand, newTile) {
+        const tiles = [...hand, newTile];
+        if (tiles.length % 3 !== 2) return false;
+
+        if (isQiDui(tiles)) return true;
+
+        const countMap = new Map();
+        for (let t of tiles) {
+            countMap.set(t, (countMap.get(t) || 0) + 1);
+        }
+        const uniqueTiles = Array.from(countMap.keys());
+        for (let pairTile of uniqueTiles) {
+            if (countMap.get(pairTile) < 2) continue;
+            const cnt = new Map(countMap);
+            cnt.set(pairTile, cnt.get(pairTile) - 2);
+            if (cnt.get(pairTile) === 0) cnt.delete(pairTile);
+            if (canFormGroups(cnt)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function canFormGroups(cnt) {
+        if (cnt.size === 0) return true;
+        const tiles = Array.from(cnt.keys());
+        tiles.sort((a,b) => {
+            const aIsNum = !ZI_TILES.includes(a);
+            const bIsNum = !ZI_TILES.includes(b);
+            if (aIsNum && !bIsNum) return -1;
+            if (!aIsNum && bIsNum) return 1;
+            return a.localeCompare(b);
+        });
+        const first = tiles[0];
+        const firstCnt = cnt.get(first);
+
+        if (firstCnt >= 3) {
+            const newCnt = new Map(cnt);
+            newCnt.set(first, firstCnt - 3);
+            if (newCnt.get(first) === 0) newCnt.delete(first);
+            if (canFormGroups(newCnt)) return true;
+        }
+
+        if (!ZI_TILES.includes(first)) {
+            const parsed = parseTile(first);
+            const num = parsed.num;
+            const suit = parsed.suit;
+            const second = (num+1) + suit;
+            const third = (num+2) + suit;
+            if (cnt.has(second) && cnt.has(third)) {
+                const newCnt = new Map(cnt);
+                newCnt.set(first, firstCnt - 1);
+                if (newCnt.get(first) === 0) newCnt.delete(first);
+                newCnt.set(second, newCnt.get(second) - 1);
+                if (newCnt.get(second) === 0) newCnt.delete(second);
+                newCnt.set(third, newCnt.get(third) - 1);
+                if (newCnt.get(third) === 0) newCnt.delete(third);
+                if (canFormGroups(newCnt)) return true;
+            }
+        }
+        return false;
+    }
+    // ============================================
+
+    // 渲染所有
+    function renderAll() {
+        playerCountSpan.innerText = playersHand[0].length;
+        for(let i=1;i<=3;i++) aiCount[i].innerText = playersHand[i].length;
+        playerFlowerDiv.innerHTML = playersFlower[0].map(t => `<span class="tile small">${t}</span>`).join('');
+        for(let i=1;i<=3;i++) aiFlower[i].innerHTML = playersFlower[i].map(t => `<span class="tile small">${t}</span>`).join('');
+        playerMeldDiv.innerHTML = playersMeld[0].map(m => 
+            `<span style="display:flex;gap:2px;background:#5a3e28;padding:2px;border-radius:8px;">${m.tiles.map(t => `<span class="tile small">${t}</span>`).join('')}</span>`
+        ).join('');
+        for(let i=1;i<=3;i++) {
+            aiMeld[i].innerHTML = playersMeld[i].map(m => 
+                `<span style="display:flex;gap:2px;background:#5a3e28;padding:2px;border-radius:8px;">${m.tiles.map(t => `<span class="tile small">${t}</span>`).join('')}</span>`
+            ).join('');
+        }
+        publicDiscardDiv.innerHTML = publicDiscard.slice(-15).map(t => `<span class="tile">${t}</span>`).join('');
+        if(playersHand[0]) {
+            playerHandDiv.innerHTML = playersHand[0].map(t => 
+                `<button class="tile-btn" data-tile="${t}" ${!gameActive || currentPlayer!==0 || actionRequired || waitingForAI ? 'disabled' : ''}>${t}</button>`
+            ).join('');
+        }
+        deckCountSpan.innerText = deck.length;
+        turnText.innerText = !gameActive ? '⚙️ 未开始' : (waitingForAI ? '🤖 AI思考' : (currentPlayer===0 ? '🧑 你的回合' : `🤖 AI-${currentPlayer}`));
+
+        if (gameActive && currentPlayer === 0 && !actionRequired && !waitingForAI) {
+            const hand = playersHand[0];
+            const counts = {};
+            for (let t of hand) counts[t] = (counts[t] || 0) + 1;
+            const hasQuad = Object.values(counts).some(c => c >= 4);
+            actionBtns.gang.disabled = !hasQuad;
+        }
+    }
+
+    // 开始游戏
+    function startGame() {
+        initDeck();
+        deal();
+        gameActive = true;
+        currentPlayer = 0;
+        waitingForAI = false;
+        actionRequired = false;
+        publicDiscard = [];
+        discardHistory = [];
+        renderAll();
+        if(currentPlayer === 0) playerDraw();
+    }
+
+    function playerDraw() {
+        if(!gameActive || currentPlayer!==0 || actionRequired) return;
+        const tile = drawCardForPlayer(0);
+        if(!tile) { gameOver('牌堆空'); return; }
+        playersHand[0].push(tile);
+        renderAll();
+    }
+
+    function playerDiscard(tile) {
+        if(!gameActive || currentPlayer!==0 || actionRequired) return;
+        const idx = playersHand[0].indexOf(tile);
+        if(idx===-1) return;
+        playersHand[0].splice(idx,1);
+        publicDiscard.push(tile);
+        discardHistory.push({player:0, tile});
+        lastDiscard = tile;
+        lastDiscardBy = 0;
+        sortHand(playersHand[0]);
+        renderAll();
+        checkForActionsAfterDiscard(0);
+    }
+
+    function checkForActionsAfterDiscard(discarder) {
+        if(discarder !== 0) {
+            let canAct = false;
+            const tile = lastDiscard;
+            const count = playersHand[0].filter(t => t === tile).length;
+            if(count >= 2) {
+                actionBtns.peng.disabled = false;
+                canAct = true;
+            }
+            if(count >= 3) {
+                actionBtns.gang.disabled = false;
+                canAct = true;
+            }
+            if (canHu(playersHand[0], tile)) {
+                actionBtns.hu.disabled = false;
+                canAct = true;
+            }
+            if(discarder === 3 && !FLOWER_TILES.includes(tile) && NORMAL_TILES.includes(tile)) {
+                if(canEat(playersHand[0], tile)) {
+                    actionBtns.chi.disabled = false;
+                    canAct = true;
+                }
+            }
+            if(canAct) {
+                actionRequired = true;
+                actionBtns.pass.disabled = false;
+                renderAll();
+                return;
+            }
+        }
+        setTimeout(() => nextTurnAfterDiscard(discarder), 500);
+    }
+
+    function canEat(hand, tile) {
+        if(tile.length<2) return false;
+        const num = parseInt(tile[0]);
+        if(isNaN(num)) return false;
+        const suit = tile[1];
+        const prev = (num-1) + suit;
+        const next = (num+1) + suit;
+        // 至少有一种吃法
+        return (hand.includes(prev) && hand.includes(next)) || 
+               (hand.includes(prev) && hand.includes(tile)) || 
+               (hand.includes(tile) && hand.includes(next));
+    }
+
+    // 暗杠
+    function handleAnGang() {
+        if (!gameActive || currentPlayer !== 0 || actionRequired || waitingForAI) return;
+        const hand = playersHand[0];
+        const counts = {};
+        for (let t of hand) counts[t] = (counts[t] || 0) + 1;
+        const quadTile = Object.keys(counts).find(t => counts[t] >= 4);
+        if (!quadTile) return;
+        playersHand[0] = hand.filter(t => t !== quadTile);
+        playersMeld[0].push({type:'angang', tiles:[quadTile, quadTile, quadTile, quadTile]});
+        const newTile = drawCardForPlayer(0);
+        if (newTile) playersHand[0].push(newTile);
+        renderAll();
+    }
+
+    // 玩家执行动作
+    function handlePlayerAction(act) {
+        if (act === 'gang' && !actionRequired) {
+            handleAnGang();
+            return;
+        }
+        if(!actionRequired) return;
+
+        if(act === 'pass') {
+            actionRequired = false;
+            disableActionButtons();
+            nextTurnAfterDiscard(lastDiscardBy);
+            return;
+        }
+        if(act === 'peng') {
+            const tile = lastDiscard;
+            const indices = playersHand[0].reduce((acc,t,i) => t===tile ? [...acc,i] : acc, []);
+            if(indices.length>=2) {
+                playersHand[0].splice(indices[0],1);
+                playersHand[0].splice(indices[1]-1,1);
+                playersMeld[0].push({type:'peng', tiles:[tile, tile, tile]});
+                actionRequired = false;
+                disableActionButtons();
+                sortHand(playersHand[0]);
+                currentPlayer = 0;
+                renderAll();
+                return;
+            }
+        }
+        if(act === 'gang') {
+            const tile = lastDiscard;
+            const indices = playersHand[0].reduce((acc,t,i) => t===tile ? [...acc,i] : acc, []);
+            if(indices.length>=3) {
+                indices.sort((a,b)=>b-a);
+                for(let idx of indices) playersHand[0].splice(idx,1);
+                playersMeld[0].push({type:'gang', tiles:[tile, tile, tile, tile]});
+                const newTile = drawCardForPlayer(0);
+                if(newTile) playersHand[0].push(newTile);
+                sortHand(playersHand[0]);
+                actionRequired = false;
+                disableActionButtons();
+                currentPlayer = 0;
+                renderAll();
+                return;
+            }
+        }
+        if(act === 'hu') {
+            alert('玩家胡牌！游戏胜利');
+            gameActive = false;
+            renderAll();
+            return;
+        }
+        if(act === 'chi') {
+            const tile = lastDiscard;
+            const num = parseInt(tile[0]);
+            const suit = tile[1];
+            const hand = playersHand[0];
+            const possibleEats = [];
+            // 作为顺子中间
+            if (hand.includes((num-1)+suit) && hand.includes((num+1)+suit)) {
+                possibleEats.push({
+                    tiles:[(num-1)+suit, tile, (num+1)+suit],
+                    remove:[(num-1)+suit, (num+1)+suit]
+                });
+            }
+            // 作为顺子左边（tile最小）
+            if (hand.includes((num+1)+suit) && hand.includes((num+2)+suit)) {
+                possibleEats.push({
+                    tiles:[tile, (num+1)+suit, (num+2)+suit],
+                    remove:[(num+1)+suit, (num+2)+suit]
+                });
+            }
+            // 作为顺子右边（tile最大）
+            if (hand.includes((num-2)+suit) && hand.includes((num-1)+suit)) {
+                possibleEats.push({
+                    tiles:[(num-2)+suit, (num-1)+suit, tile],
+                    remove:[(num-2)+suit, (num-1)+suit]
+                });
+            }
+            if (possibleEats.length === 0) return;
+            let selected = 0;
+            if (possibleEats.length > 1) {
+                const msg = possibleEats.map((p, idx) => `${idx+1}: 吃 ${p.tiles.join('')}`).join('\n');
+                const choice = prompt(`有多种吃法，请选择:\n${msg}`, '1');
+                if (choice === null) return;
+                selected = parseInt(choice) - 1;
+                if (isNaN(selected) || selected < 0 || selected >= possibleEats.length) return;
+            }
+            const eat = possibleEats[selected];
+            for (let r of eat.remove) {
+                const idx = playersHand[0].indexOf(r);
+                if (idx !== -1) playersHand[0].splice(idx, 1);
+            }
+            playersMeld[0].push({type:'chi', tiles:eat.tiles});
+            actionRequired = false;
+            disableActionButtons();
+            sortHand(playersHand[0]);
+            currentPlayer = 0;
+            renderAll();
+            return;
+        }
+    }
+
+    function disableActionButtons() {
+        actionBtns.chi.disabled = true;
+        actionBtns.peng.disabled = true;
+        actionBtns.gang.disabled = true;
+        actionBtns.hu.disabled = true;
+        actionBtns.pass.disabled = true;
+    }
+
+    function nextTurnAfterDiscard(discarder) {
+        if(!gameActive) return;
+        currentPlayer = (discarder + 1) % 4;
+        if(currentPlayer === 0) {
+            playerDraw();
+        } else {
+            aiTurn();
+        }
+        renderAll();
+    }
+
+    // AI回合
+    async function aiTurn() {
+        if(!gameActive || currentPlayer===0) return;
+        waitingForAI = true;
+        renderAll();
+
+        const tile = drawCardForPlayer(currentPlayer);
+        if(!tile) { gameOver('牌堆空'); return; }
+        playersHand[currentPlayer].push(tile);
+        sortHand(playersHand[currentPlayer]);
+        renderAll();
+        await new Promise(r => setTimeout(r,600));
+
+        const aiIdx = currentPlayer;
+        const hand = playersHand[aiIdx];
+        let discardTile = null;
+        const cfg = aiConfig[aiIdx];
+        if(cfg.url) {
+            try {
+                discardTile = await callAI(aiIdx, hand, cfg);
+            } catch(e) { console.warn(e); }
+        }
+        if(!discardTile || !hand.includes(discardTile)) {
+            discardTile = hand[Math.floor(Math.random()*hand.length)];
+        }
+
+        const idx = playersHand[aiIdx].indexOf(discardTile);
+        if(idx!==-1) playersHand[aiIdx].splice(idx,1);
+        publicDiscard.push(discardTile);
+        discardHistory.push({player:aiIdx, tile:discardTile});
+        lastDiscard = discardTile;
+        lastDiscardBy = aiIdx;
+        renderAll();
+
+        waitingForAI = false;
+        if(aiIdx !== 0) {
+            checkForActionsAfterDiscard(aiIdx);
+        } else {
+            nextTurnAfterDiscard(aiIdx);
+        }
+    }
+
+    // 调用AI (提供所有弃牌记录)
+    async function callAI(aiIdx, hand, cfg) {
+        // 按玩家分类弃牌
+        const discardByPlayer = [[], [], [], []];
+        for (let d of discardHistory) {
+            discardByPlayer[d.player].push(d.tile);
+        }
+        let discardDesc = '';
+        for (let p = 0; p < 4; p++) {
+            if (discardByPlayer[p].length > 0) {
+                discardDesc += `${playerNames[p]}：${discardByPlayer[p].join('、')}；`;
+            }
+        }
+        if (discardDesc === '') discardDesc = '尚无弃牌';
+        else discardDesc = '所有已打出的牌：' + discardDesc;
+
+        const prompt = `你是一个麻将AI。手牌：${hand.join(',')}。${discardDesc}。请选择一张牌打出，只输出牌名(如“1万”或“东”)，不要其他文字。`;
+        const body = {
+            model: cfg.model || 'gpt-3.5-turbo',
+            messages: [{role:'user', content: prompt}],
+            temperature:0.7,
+            max_tokens:20
+        };
+        const headers = {'Content-Type':'application/json'};
+        if(cfg.key) headers['Authorization'] = `Bearer ${cfg.key}`;
+
+        const resp = await fetch(cfg.url, {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify(body)
+        });
+        const data = await resp.json();
+        const content = data.choices?.[0]?.message?.content || '';
+        const match = content.match(/[^\s,，]+/);
+        return match ? match[0] : null;
+    }
+
+    function gameOver(reason) {
+        gameActive = false;
+        turnText.innerText = '⏹️ 牌局结束';
+    }
+
+    // 事件绑定
+    playerHandDiv.addEventListener('click', (e) => {
+        const btn = e.target.closest('.tile-btn');
+        if(!btn || btn.disabled) return;
+        playerDiscard(btn.dataset.tile);
+    });
+
+    actionBtns.peng.addEventListener('click', ()=>handlePlayerAction('peng'));
+    actionBtns.gang.addEventListener('click', ()=>handlePlayerAction('gang'));
+    actionBtns.hu.addEventListener('click', ()=>handlePlayerAction('hu'));
+    actionBtns.chi.addEventListener('click', ()=>handlePlayerAction('chi'));
+    actionBtns.pass.addEventListener('click', ()=>handlePlayerAction('pass'));
+
+    restartBtn.addEventListener('click', () => {
+        startGame();
+    });
+
+    // 配置弹窗
+    function createPopup(aiIndex, avatarEl) {
+        const existing = document.getElementById(`pop-${aiIndex}`);
+        if(existing) { existing.style.display = 'block'; return; }
+        const div = document.createElement('div');
+        div.id = `pop-${aiIndex}`;
+        div.className = 'config-popup';
+        div.innerHTML = `
+            <h4 style="color:#fff0b5;">🤖 AI-${aiIndex}</h4>
+            <input id="url-${aiIndex}" placeholder="API地址" value="${aiConfig[aiIndex].url || ''}">
+            <input id="model-${aiIndex}" placeholder="模型" value="${aiConfig[aiIndex].model || ''}">
+            <input id="key-${aiIndex}" placeholder="API Key" value="${aiConfig[aiIndex].key || ''}">
+            <button class="save-config" data-ai="${aiIndex}">保存并关闭</button>
+        `;
+        document.getElementById('popupContainer').appendChild(div);
+        const rect = avatarEl.getBoundingClientRect();
+        div.style.top = (rect.top + window.scrollY - 200) + 'px';
+        div.style.left = (rect.left + window.scrollX - 40) + 'px';
+        div.querySelector('.save-config').addEventListener('click', (e) => {
+            const idx = e.target.dataset.ai;
+            aiConfig[idx] = {
+                url: document.getElementById(`url-${idx}`).value.trim(),
+                model: document.getElementById(`model-${idx}`).value.trim() || 'gpt-3.5-turbo',
+                key: document.getElementById(`key-${idx}`).value.trim()
+            };
+            div.style.display = 'none';
+        });
+    }
+
+    document.getElementById('ai1header').addEventListener('click', (e) => { e.stopPropagation(); createPopup(1, document.querySelector('#ai1header .avatar')); });
+    document.getElementById('ai2header').addEventListener('click', (e) => { e.stopPropagation(); createPopup(2, document.querySelector('#ai2header .avatar')); });
+    document.getElementById('ai3header').addEventListener('click', (e) => { e.stopPropagation(); createPopup(3, document.querySelector('#ai3header .avatar')); });
+
+    // 启动
+    window.startGame = startGame;
+    setTimeout(startGame, 300);
+})();
+</script>
+</body>
+</html>
