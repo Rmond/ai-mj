@@ -28,7 +28,11 @@
     let awaitingEatChoice = false;
     let passedPlayers = []; // 记录当前打出牌后已经选择“过”的玩家
 
-    let aiConfig = { 1: { url: '', model: '', key: '' }, 2: { url: '', model: '', key: '' }, 3: { url: '', model: '', key: '' } };
+    const aiConfigs = {
+        1: { url: '', model: '', key: '' },
+        2: { url: '', model: '', key: '' },
+        3: { url: '', model: '', key: '' }
+    };
 
     const deckCountSpan = document.getElementById('deckCount');
     const turnText = document.getElementById('turnText');
@@ -711,17 +715,65 @@
         sortHand(playersHand[p]);
         renderAll();
         await new Promise(r => setTimeout(r, 600));
-        const discardTile = playersHand[p][Math.floor(Math.random() * playersHand[p].length)];
-        const idx = playersHand[p].indexOf(discardTile);
-        playersHand[p].splice(idx,1);
+
+        const aiIdx = currentPlayer;
+        const hand = playersHand[aiIdx];
+        let discardTile = null;
+        const cfg = aiConfigs[aiIdx];
+        if(cfg.url) {
+            try {
+                discardTile = await callAI(aiIdx, hand, cfg);
+            } catch(e) { console.warn(e); }
+        }
+        if(!discardTile || !hand.includes(discardTile)) {
+            discardTile = hand[Math.floor(Math.random()*hand.length)];
+        }
+
+        const idx = playersHand[aiIdx].indexOf(discardTile);
+        if(idx!==-1) playersHand[aiIdx].splice(idx,1);
         publicDiscard.push(discardTile);
-        discardHistory.push({player:p, tile:discardTile});
+        discardHistory.push({player:aiIdx, tile:discardTile});
         lastDiscard = discardTile;
-        lastDiscardBy = p;
-        passedPlayers = []; // 重置已过玩家
+        lastDiscardBy = aiIdx;
+        passedPlayers = [];
         waitingForAI = false;
         renderAll();
-        askNextPlayer((p+1)%4, p);
+        askNextPlayer((aiIdx+1)%4, aiIdx);
+    }
+
+    async function callAI(aiIdx, hand, cfg) {
+        const discardByPlayer = [[], [], [], []];
+        for (let d of discardHistory) {
+            discardByPlayer[d.player].push(d.tile);
+        }
+        let discardDesc = '';
+        for (let p = 0; p < 4; p++) {
+            if (discardByPlayer[p].length > 0) {
+                discardDesc += `${playerNames[p]}：${discardByPlayer[p].join('、')}；`;
+            }
+        }
+        if (discardDesc === '') discardDesc = '尚无弃牌';
+        else discardDesc = '所有已打出的牌：' + discardDesc;
+
+        const prompt = `你是一个麻将AI。手牌：${hand.join(',')}。${discardDesc}。请选择一张牌打出，只输出牌名(如"1万"或"东")，不要其他文字。`;
+        const body = {
+            model: cfg.model || 'gpt-3.5-turbo',
+            messages: [{role:'user', content: prompt}],
+            temperature:0.7,
+            max_tokens:20
+        };
+        const headers = {'Content-Type':'application/json'};
+        if(cfg.key) headers['Authorization'] = `Bearer ${cfg.key}`;
+
+        const resp = await fetch(cfg.url, {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify(body)
+        });
+        const data = await resp.json();
+        const content = data.choices?.[0]?.message?.content || '';
+        const match = content.match(/[^\s,，]+/);
+        return match ? match[0] : null;
     }
 
     function gameOver(reason) {
@@ -746,6 +798,58 @@
     });
 
     restartBtn.onclick = startGame;
+
+    function createPopup(aiPlayer, element) {
+        const popup = document.getElementById('aiConfigPopup');
+        const playerName = document.getElementById('aiConfigPlayerName');
+        const apiUrlInput = document.getElementById('aiApiUrl');
+        const modelNameInput = document.getElementById('aiModelName');
+        const systemPromptInput = document.getElementById('aiSystemPrompt');
+
+        const playerNames = { 1: '下家', 2: '对家', 3: '上家' };
+        playerName.textContent = playerNames[aiPlayer];
+
+        apiUrlInput.value = aiConfigs[aiPlayer].url;
+        modelNameInput.value = aiConfigs[aiPlayer].model;
+        systemPromptInput.value = aiConfigs[aiPlayer].key;
+
+        popup.style.display = 'flex';
+    }
+
+    document.getElementById('saveAiConfig').addEventListener('click', () => {
+        const apiUrlInput = document.getElementById('aiApiUrl');
+        const modelNameInput = document.getElementById('aiModelName');
+        const systemPromptInput = document.getElementById('aiSystemPrompt');
+        const playerName = document.getElementById('aiConfigPlayerName').textContent;
+
+        const playerMap = { '下家': 1, '对家': 2, '上家': 3 };
+        const aiPlayer = playerMap[playerName];
+
+        aiConfigs[aiPlayer].url = apiUrlInput.value;
+        aiConfigs[aiPlayer].model = modelNameInput.value;
+        aiConfigs[aiPlayer].key = systemPromptInput.value;
+
+        document.getElementById('aiConfigPopup').style.display = 'none';
+    });
+
+    document.getElementById('cancelAiConfig').addEventListener('click', () => {
+        document.getElementById('aiConfigPopup').style.display = 'none';
+    });
+
+    document.getElementById('ai1header').addEventListener('click', (e) => {
+        e.stopPropagation();
+        createPopup(1, document.querySelector('#ai1header .avatar'));
+    });
+
+    document.getElementById('ai2header').addEventListener('click', (e) => {
+        e.stopPropagation();
+        createPopup(2, document.querySelector('#ai2header .avatar'));
+    });
+
+    document.getElementById('ai3header').addEventListener('click', (e) => {
+        e.stopPropagation();
+        createPopup(3, document.querySelector('#ai3header .avatar'));
+    });
 
     window.startGame = startGame;
     setTimeout(startGame, 300);
