@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI麻将 · 智能对战</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+            font-family: 'Segoe UI', 'Noto Sans', system-ui;
+        }
+        .game-container {
+            max-width: 1400px;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border-radius: 30px;
+            padding: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+            position: relative;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .header h1 {
+            color: #fff;
+            font-size: 1.8rem;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .header-buttons {
+            display: flex;
+            gap: 12px;
+        }
+        .header-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+        }
+        .header-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+        .header-btn.primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+        }
+        .header-btn.primary:hover {
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        .grid-positions {
+            display: grid;
+            grid-template-columns: 1fr 1.2fr 1fr;
+            grid-template-rows: auto auto auto;
+            gap: 20px;
+        }
+        .player-card {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 20px;
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        .player-card:hover {
+            background: rgba(255, 255, 255, 0.12);
+        }
+        .player-card.active {
+            border-color: #667eea;
+            box-shadow: 0 0 20px rgba(102, 126, 234, 0.3);
+        }
+        .player-card.ai-card {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        .player-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .avatar {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        .player-name {
+            color: #fff;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        .hand-count {
+            margin-left: auto;
+            background: rgba(102, 126, 234, 0.3);
+            padding: 5px 15px;
+            border-radius: 20px;
+            color: #fff;
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+        .flower-area {
+            background: rgba(255, 193, 7, 0.15);
+            border-radius: 15px;
+            padding: 8px 12px;
+            color: #ffc107;
+            font-size: 1.1rem;
+            margin: 8px 0;
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            min-height: 32px;
+        }
+        .meld-area {
+            background: rgba(76, 175, 80, 0.15);
+            border-radius: 15px;
+            padding: 8px 12px;
+            margin: 8px 0;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            border: 1px solid rgba(76, 175, 80, 0.3);
+            min-height: 32px;
+        }
+        .hand-tiles {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            justify-content: center;
+            margin: 12px 0;
+        }
+        .tile-btn {
+            background: linear-gradient(145deg, #ffffff 0%, #f0f0f0 100%);
+            border: 2px solid #ddd;
+            font-size: 1.8rem;
+            font-family: 'KaiTi', '楷体', serif;
+            padding: 6px 0;
+            width: 70px;
+            border-radius: 12px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+            color: #333;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .tile-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+        }
+        .tile-btn:active {
+            transform: translateY(1px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .tile-btn:disabled {
+            opacity: 0.4;
+            transform: none;
+            pointer-events: none;
+        }
+        .tile-btn.selected {
+            border-color: #667eea;
+            box-shadow: 0 0 15px rgba(102, 126, 234, 0.5);
+            transform: translateY(-5px);
+        }
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin: 12px 0;
+        }
+        .action-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            font-size: 1.4rem;
+            padding: 10px 25px;
+            border-radius: 25px;
+            font-weight: bold;
+            color: #fff;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        .action-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+        .action-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        .center-area {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 25px;
+            padding: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .public-discard {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 20px;
+            padding: 15px 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px 10px;
+            justify-content: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            min-height: 80px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .status-bar {
+            color: #fff;
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+            display: flex;
+            gap: 30px;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 8px 16px;
+            border-radius: 20px;
+        }
+        .tile {
+            background: linear-gradient(145deg, #ffffff 0%, #f0f0f0 100%);
+            border-radius: 10px;
+            padding: 4px 10px;
+            font-size: 1.1rem;
+            font-family: 'KaiTi', '楷体', serif;
+            color: #333;
+            border: 1px solid #ddd;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            min-width: 38px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .tile.small {
+            font-size: 0.95rem;
+            padding: 3px 8px;
+            min-width: 32px;
+        }
+        .footer {
+            color: rgba(255, 255, 255, 0.6);
+            text-align: center;
+            margin-top: 20px;
+            font-size: 0.9rem;
+        }
+        #eatChoicePanel {
+            position: fixed;
+            background: rgba(30, 30, 50, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 25px;
+            padding: 30px;
+            z-index: 1000;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+            display: none;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            min-width: 320px;
+            text-align: center;
+        }
+        #eatChoicePanel h4 {
+            color: #fff;
+            margin: 0 0 20px 0;
+            font-size: 1.4rem;
+        }
+        #eatChoiceButtons {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .eat-option-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            padding: 14px 25px;
+            border-radius: 25px;
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: #fff;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        .eat-option-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+        #cancelEatChoice {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 12px 25px;
+            border-radius: 25px;
+            font-size: 1.1rem;
+            color: #fff;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        #cancelEatChoice:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .thinking {
+            animation: pulse 1.5s infinite;
+        }
+        @media (max-width: 1200px) {
+            .grid-positions {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto;
+            }
+            .player-card {
+                order: 2;
+            }
+            .center-area {
+                order: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container" id="app">
+        <div class="header">
+            <h1>🀄 AI麻将</h1>
+            <div class="header-buttons">
+                <button class="header-btn" onclick="location.href='index.html'">🏠 返回首页</button>
+                <button class="header-btn primary" id="restartBtn">🔄 重新开始</button>
+            </div>
+        </div>
+        <div class="grid-positions">
+            <div style="grid-area: 1/2/2/3;">
+                <div class="player-card ai-card" id="ai2card">
+                    <div class="player-header">
+                        <span class="avatar">🤖</span>
+                        <span class="player-name">AI 对家</span>
+                        <span class="hand-count" id="ai2count">13</span>
+                    </div>
+                    <div class="flower-area" id="ai2flower"></div>
+                    <div class="meld-area" id="ai2meld"></div>
+                </div>
+            </div>
+            <div style="grid-area: 2/1/3/2;">
+                <div class="player-card ai-card" id="ai3card">
+                    <div class="player-header">
+                        <span class="avatar">🤖</span>
+                        <span class="player-name">AI 上家</span>
+                        <span class="hand-count" id="ai3count">13</span>
+                    </div>
+                    <div class="flower-area" id="ai3flower"></div>
+                    <div class="meld-area" id="ai3meld"></div>
+                </div>
+            </div>
+            <div style="grid-area: 2/2/3/3;">
+                <div class="center-area">
+                    <div class="status-bar">
+                        <div class="status-item">🀫 <span id="deckCount">0</span></div>
+                        <div class="status-item" id="turnText">等待开始</div>
+                    </div>
+                    <div class="public-discard" id="publicDiscards"></div>
+                </div>
+            </div>
+            <div style="grid-area: 2/3/3/4;">
+                <div class="player-card ai-card" id="ai1card">
+                    <div class="player-header">
+                        <span class="avatar">🤖</span>
+                        <span class="player-name">AI 下家</span>
+                        <span class="hand-count" id="ai1count">13</span>
+                    </div>
+                    <div class="flower-area" id="ai1flower"></div>
+                    <div class="meld-area" id="ai1meld"></div>
+                </div>
+            </div>
+            <div style="grid-area: 3/2/4/3;">
+                <div class="player-card" id="playerCard">
+                    <div class="player-header">
+                        <span class="avatar">👤</span>
+                        <span class="player-name">玩家</span>
+                        <span class="hand-count" id="playerCount">13</span>
+                    </div>
+                    <div class="flower-area" id="playerFlower"></div>
+                    <div class="meld-area" id="playerMeld"></div>
+                    <div class="action-buttons" id="playerActions">
+                        <button class="action-btn" id="chiBtn" disabled>吃</button>
+                        <button class="action-btn" id="pengBtn" disabled>碰</button>
+                        <button class="action-btn" id="gangBtn" disabled>杠</button>
+                        <button class="action-btn" id="huBtn" disabled>胡</button>
+                        <button class="action-btn" id="passBtn" disabled>过</button>
+                    </div>
+                    <div class="hand-tiles" id="playerHand"></div>
+                </div>
+            </div>
+        </div>
+        <div class="footer">🀇 258将 · 全弃牌 · 暗杠七对 · 过牌直接继续</div>
+        <div id="eatChoicePanel">
+            <h4>请选择吃法</h4>
+            <div id="eatChoiceButtons"></div>
+            <button id="cancelEatChoice">取消</button>
+        </div>
+    </div>
+    <script src="mahjong.js"></script>
+</body>
+</html>
