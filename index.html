@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI麻将 · 吃牌修复 · AI决策 · 全弃牌 · 258将 (Cloudflare)</title>
+    <title>AI麻将 · 吃牌修复 · 玩家回合 · 258将 (Cloudflare)</title>
     <style>
         * {
             box-sizing: border-box;
@@ -300,7 +300,7 @@
             </div>
         </div>
     </div>
-    <div class="footer">🀇 258将 · 全弃牌 · 暗杠七对 · AI决策</div>
+    <div class="footer">🀇 258将 · 全弃牌 · 暗杠七对 · AI决策 · 吃牌可选</div>
     <!-- 配置弹窗容器 -->
     <div id="popupContainer"></div>
 </div>
@@ -535,7 +535,7 @@
     // 检查特定玩家p是否有动作（胡、碰、杠、吃）
     function getAvailableActions(p, tile, discarder) {
         const actions = [];
-        if (p === discarder) return actions; // 自己不能对自己
+        if (p === discarder) return actions;
         const hand = playersHand[p];
         // 胡
         if (canHu(hand, tile)) {
@@ -550,20 +550,16 @@
         if (count >= 3) {
             actions.push('gang');
         }
-        // 吃：只有上家（discarder === (p+1)%4? 注意上家定义：打出者的下家是吃牌者？标准：上家打出的牌，下家可吃。所以p是打出者的下家：discarder === (p+3)%4? 我们定义玩家索引：0玩家，1下家，2对家，3上家。所以上家打出的牌，下家（p=1）可吃？实际上，p是当前玩家，打出者是discarder，如果discarder是p的上家，则p可吃。上家是(p+3)%4。所以条件：discarder === (p+3)%4。
+        // 吃：只有上家（discarder === (p+3)%4）
         if (discarder === (p+3)%4 && !FLOWER_TILES.includes(tile) && NORMAL_TILES.includes(tile)) {
-            // 检查顺子
             const num = parseInt(tile[0]);
             const suit = tile[1];
             const prev = (num-1) + suit;
             const next = (num+1) + suit;
             const prev2 = (num-2) + suit;
             const next2 = (num+2) + suit;
-            // 作为左：手牌有next和next2
             if (hand.includes(next) && hand.includes(next2)) actions.push('chi_left');
-            // 作为中：手牌有prev和next
             if (hand.includes(prev) && hand.includes(next)) actions.push('chi_mid');
-            // 作为右：手牌有prev2和prev
             if (hand.includes(prev2) && hand.includes(prev)) actions.push('chi_right');
         }
         return actions;
@@ -635,11 +631,9 @@
         lastDiscardBy = 0;
         sortHand(playersHand[0]);
         renderAll();
-        // 出牌后，开始询问其他玩家
-        askNextPlayer((0+1)%4, 0); // 从下家开始
+        askNextPlayer((0+1)%4, 0);
     }
 
-    // 递归询问玩家p（按顺序），discarder是打出牌的人
     function askNextPlayer(start, discarder) {
         if (!gameActive) return;
         for (let i = 0; i < 4; i++) {
@@ -648,29 +642,23 @@
             const actions = getAvailableActions(p, lastDiscard, discarder);
             if (actions.length > 0) {
                 if (p === 0) {
-                    // 玩家，显示按钮
                     actionRequired = true;
                     currentResponder = p;
-                    // 启用对应的按钮
                     actionBtns.chi.disabled = !actions.some(a => a.startsWith('chi'));
                     actionBtns.peng.disabled = !actions.includes('peng');
                     actionBtns.gang.disabled = !actions.includes('gang');
                     actionBtns.hu.disabled = !actions.includes('hu');
                     actionBtns.pass.disabled = false;
                     renderAll();
-                    return; // 等待玩家操作
+                    return;
                 } else {
-                    // AI，调用AI决策
                     waitingForAI = true;
                     renderAll();
-                    // 模拟AI决策（实际应调用API）
                     askAIAction(p, actions, discarder).then(chosenAction => {
                         waitingForAI = false;
                         if (chosenAction && chosenAction !== 'pass') {
-                            // 执行AI动作
                             performAIAction(p, chosenAction, lastDiscard, discarder);
                         } else {
-                            // AI过，继续下一个
                             askNextPlayer((p+1)%4, discarder);
                         }
                     });
@@ -678,23 +666,17 @@
                 }
             }
         }
-        // 没有人有动作，轮到打出者的下家摸牌
         nextTurnAfterDiscard(discarder);
     }
 
-    // AI决策：调用API或随机
     async function askAIAction(p, actions, discarder) {
-        // 如果有胡，优先胡（模拟AI胡牌）
         if (actions.includes('hu')) return 'hu';
-        // 否则，随机选一个（实际应调用API）
-        // 为了演示，随机返回一个动作
         const nonHu = actions.filter(a => a !== 'hu');
         if (nonHu.length === 0) return 'pass';
         const randomIndex = Math.floor(Math.random() * nonHu.length);
         return nonHu[randomIndex];
     }
 
-    // 执行AI动作
     function performAIAction(p, action, tile, discarder) {
         if (!gameActive) return;
         if (action === 'hu') {
@@ -711,13 +693,9 @@
                 playersMeld[p].push({type:'peng', tiles:[tile, tile, tile]});
                 sortHand(playersHand[p]);
                 renderAll();
-                // 碰后由该玩家继续出牌
                 currentPlayer = p;
-                // 如果是AI，则AI回合（摸牌后出牌）
                 if (p !== 0) {
-                    aiTurn(); // 直接开始AI回合（注意aiTurn会摸牌）
-                } else {
-                    // 玩家碰后，玩家回合，可以打牌
+                    aiTurn();
                 }
                 return;
             }
@@ -740,7 +718,6 @@
             }
         }
         if (action.startsWith('chi')) {
-            // 解析吃法
             const num = parseInt(tile[0]);
             const suit = tile[1];
             let remove = [];
@@ -773,16 +750,22 @@
     // 玩家点击动作按钮
     function handlePlayerAction(act) {
         if (!actionRequired || currentResponder !== 0) return;
-        // 清除按钮
+        // 清除响应状态
         actionRequired = false;
+        currentResponder = -1;
+        waitingForAI = false; // 确保没有等待标志
         disableActionButtons();
+
         if (act === 'pass') {
-            // 玩家过，继续询问下一个
             askNextPlayer((0+1)%4, lastDiscardBy);
             return;
         }
-        // 执行玩家动作
         performPlayerAction(act, lastDiscard, lastDiscardBy);
+        
+        // 双重保险：确保吃完后标志正确（performPlayerAction内也会设置，但这里再次确保）
+        actionRequired = false;
+        waitingForAI = false;
+        renderAll();
     }
 
     function performPlayerAction(act, tile, discarder) {
@@ -799,8 +782,8 @@
                 playersHand[0].splice(indices[1]-1,1);
                 playersMeld[0].push({type:'peng', tiles:[tile, tile, tile]});
                 sortHand(playersHand[0]);
-                renderAll();
                 currentPlayer = 0;
+                renderAll();
                 return;
             }
         }
@@ -813,15 +796,12 @@
                 const newTile = drawCardForPlayer(0);
                 if(newTile) playersHand[0].push(newTile);
                 sortHand(playersHand[0]);
-                renderAll();
                 currentPlayer = 0;
+                renderAll();
                 return;
             }
         }
         if (act === 'chi') {
-            // 玩家有多种吃法时，之前已经通过选择框处理，这里简化：使用之前的选择
-            // 实际上我们需要保存选择，这里直接用通用逻辑
-            // 但为了简单，我们复用之前的吃选择代码
             const num = parseInt(tile[0]);
             const suit = tile[1];
             const hand = playersHand[0];
@@ -860,8 +840,8 @@
             }
             playersMeld[0].push({type:'chi', tiles:eat.tiles});
             sortHand(playersHand[0]);
-            renderAll();
             currentPlayer = 0;
+            renderAll();
             return;
         }
     }
@@ -935,7 +915,6 @@
         renderAll();
 
         waitingForAI = false;
-        // 出牌后，询问其他玩家
         askNextPlayer((aiIdx+1)%4, aiIdx);
     }
 
