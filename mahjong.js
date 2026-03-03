@@ -271,6 +271,14 @@
 
         if (actionRequired) {
             actionBtns.pass.disabled = false;
+            if (gameActive && currentPlayer === 0 && !waitingForAI && !awaitingEatChoice) {
+                const hand = playersHand[0];
+                const counts = {};
+                for (let t of hand) counts[t] = (counts[t] || 0) + 1;
+                const hasQuad = Object.values(counts).some(c => c >= 4);
+                const hasPengTile = playersMeld[0].some(m => m.type === 'peng' && hand.includes(m.tiles[0]));
+                actionBtns.gang.disabled = !(hasQuad || hasPengTile);
+            }
         } else {
             actionBtns.chi.disabled = true;
             actionBtns.peng.disabled = true;
@@ -284,7 +292,7 @@
             const counts = {};
             for (let t of hand) counts[t] = (counts[t] || 0) + 1;
             const hasQuad = Object.values(counts).some(c => c >= 4);
-            const hasPengTile = hand.some(t => playersMeld[0].some(m => m.type === 'peng' && m.tiles[0] === t));
+            const hasPengTile = playersMeld[0].some(m => m.type === 'peng' && hand.includes(m.tiles[0]));
             actionBtns.gang.disabled = !(hasQuad || hasPengTile);
         }
     }
@@ -364,7 +372,6 @@
             actionBtns.pass.disabled = false;
             actionBtns.chi.disabled = true;
             actionBtns.peng.disabled = true;
-            actionBtns.gang.disabled = true;
         }
         
         renderAll();
