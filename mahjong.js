@@ -26,6 +26,7 @@
     let lastDiscardBy = -1;
     let currentResponder = -1;
     let awaitingEatChoice = false;
+    let passedPlayers = []; // 记录当前打出牌后已经选择“过”的玩家
 
     let aiConfig = { 1: { url: '', model: '', key: '' }, 2: { url: '', model: '', key: '' }, 3: { url: '', model: '', key: '' } };
 
@@ -309,6 +310,7 @@
                 awaitingEatChoice = false;
                 actionRequired = false;
                 currentPlayer = 0;
+                passedPlayers = []; // 重置已过玩家
                 renderAll();
             };
             eatChoiceButtons.appendChild(btn);
@@ -340,6 +342,7 @@
         publicDiscard = [];
         discardHistory = [];
         currentResponder = -1;
+        passedPlayers = [];
         eatChoicePanel.style.display = 'none';
         renderAll();
         if(currentPlayer === 0) playerDraw();
@@ -372,6 +375,7 @@
         discardHistory.push({player:0, tile});
         lastDiscard = tile;
         lastDiscardBy = 0;
+        passedPlayers = []; // 重置已过玩家
         sortHand(playersHand[0]);
         renderAll();
         askNextPlayer((0+1)%4, 0);
@@ -380,11 +384,10 @@
     function askNextPlayer(start, discarder) {
         if (!gameActive) return;
         
-        const nextPlayer = (discarder + 1) % 4;
-        
+        // 优先检查碰、杠、胡（按逆时针顺序，跳过已过玩家）
         for (let i = 0; i < 4; i++) {
             const p = (start + i) % 4;
-            if (p === discarder) continue;
+            if (p === discarder || passedPlayers.includes(p)) continue;
             const actions = getAvailableActions(p, lastDiscard, discarder);
             const hasPriorityAction = actions.some(a => ['peng', 'gang', 'hu'].includes(a));
             
@@ -407,6 +410,8 @@
                         if (chosenAction && chosenAction !== 'pass') {
                             performAIAction(p, chosenAction, lastDiscard, discarder);
                         } else {
+                            // AI 选择过，加入已过列表并询问下一家
+                            passedPlayers.push(p);
                             askNextPlayer((p+1)%4, discarder);
                         }
                     });
@@ -415,34 +420,40 @@
             }
         }
         
-        const chiActions = getAvailableActions(nextPlayer, lastDiscard, discarder);
-        const hasChi = chiActions.some(a => a.startsWith('chi'));
-        
-        if (hasChi) {
-            if (nextPlayer === 0) {
-                actionRequired = true;
-                currentResponder = nextPlayer;
-                actionBtns.chi.disabled = false;
-                actionBtns.peng.disabled = true;
-                actionBtns.gang.disabled = true;
-                actionBtns.hu.disabled = !chiActions.includes('hu');
-                actionBtns.pass.disabled = false;
-                renderAll();
-            } else {
-                waitingForAI = true;
-                renderAll();
-                askAIAction(nextPlayer, chiActions, discarder).then(chosenAction => {
-                    waitingForAI = false;
-                    if (chosenAction && chosenAction !== 'pass') {
-                        performAIAction(nextPlayer, chosenAction, lastDiscard, discarder);
-                    } else {
-                        nextTurnAfterDiscard(discarder);
-                    }
-                });
+        // 没有优先动作，检查下家是否可以吃（跳过已过玩家）
+        const nextPlayer = (discarder + 1) % 4;
+        if (!passedPlayers.includes(nextPlayer)) {
+            const chiActions = getAvailableActions(nextPlayer, lastDiscard, discarder);
+            const hasChi = chiActions.some(a => a.startsWith('chi'));
+            if (hasChi) {
+                if (nextPlayer === 0) {
+                    actionRequired = true;
+                    currentResponder = nextPlayer;
+                    actionBtns.chi.disabled = false;
+                    actionBtns.peng.disabled = true;
+                    actionBtns.gang.disabled = true;
+                    actionBtns.hu.disabled = !chiActions.includes('hu');
+                    actionBtns.pass.disabled = false;
+                    renderAll();
+                } else {
+                    waitingForAI = true;
+                    renderAll();
+                    askAIAction(nextPlayer, chiActions, discarder).then(chosenAction => {
+                        waitingForAI = false;
+                        if (chosenAction && chosenAction !== 'pass') {
+                            performAIAction(nextPlayer, chosenAction, lastDiscard, discarder);
+                        } else {
+                            passedPlayers.push(nextPlayer);
+                            nextTurnAfterDiscard(discarder);
+                        }
+                    });
+                }
+                return;
             }
-        } else {
-            nextTurnAfterDiscard(discarder);
         }
+        
+        // 无人响应，进入下一人摸牌
+        nextTurnAfterDiscard(discarder);
     }
 
     async function askAIAction(p, actions, discarder) {
@@ -468,6 +479,7 @@
                 playersHand[p].splice(indices[1]-1,1);
                 playersMeld[p].push({type:'peng', tiles:[tile, tile, tile]});
                 sortHand(playersHand[p]);
+                passedPlayers = []; // 重置已过玩家
                 renderAll();
                 currentPlayer = p;
                 if (p !== 0) {
@@ -485,6 +497,7 @@
                 const newTile = drawCardForPlayer(p);
                 if(newTile) playersHand[p].push(newTile);
                 sortHand(playersHand[p]);
+                passedPlayers = []; // 重置已过玩家
                 renderAll();
                 currentPlayer = p;
                 if (p !== 0) {
@@ -514,6 +527,7 @@
             }
             playersMeld[p].push({type:'chi', tiles:chiTiles});
             sortHand(playersHand[p]);
+            passedPlayers = []; // 重置已过玩家
             renderAll();
             currentPlayer = p;
             if (p !== 0) {
@@ -527,6 +541,7 @@
         if (!gameActive || !actionRequired || currentResponder !== 0 || awaitingEatChoice) return;
 
         if (act === 'pass') {
+            passedPlayers.push(0); // 记录玩家已过
             actionRequired = false;
             if (lastDiscardBy === -1 || lastDiscardBy === undefined) {
                 renderAll();
@@ -564,6 +579,7 @@
                 sortHand(playersHand[0]);
                 actionRequired = false;
                 currentPlayer = 0;
+                passedPlayers = []; // 重置已过玩家
                 renderAll();
             }
             return;
@@ -582,6 +598,7 @@
                     sortHand(playersHand[0]);
                     actionRequired = false;
                     currentPlayer = 0;
+                    passedPlayers = []; // 重置已过玩家
                     renderAll();
                 }
             } else {
@@ -606,6 +623,7 @@
                     if(newTile) playersHand[0].push(newTile);
                     sortHand(playersHand[0]);
                     currentPlayer = 0;
+                    passedPlayers = []; // 重置已过玩家
                     renderAll();
                 } else {
                     for (let meld of playersMeld[0]) {
@@ -622,6 +640,7 @@
                                     if(newTile) playersHand[0].push(newTile);
                                     sortHand(playersHand[0]);
                                     currentPlayer = 0;
+                                    passedPlayers = []; // 重置已过玩家
                                     renderAll();
                                 }
                                 break;
@@ -660,6 +679,7 @@
                 sortHand(playersHand[0]);
                 actionRequired = false;
                 currentPlayer = 0;
+                passedPlayers = []; // 重置已过玩家
                 renderAll();
             } else if (possibleEats.length > 1) {
                 showEatOptions(possibleEats, tile);
@@ -698,6 +718,7 @@
         discardHistory.push({player:p, tile:discardTile});
         lastDiscard = discardTile;
         lastDiscardBy = p;
+        passedPlayers = []; // 重置已过玩家
         waitingForAI = false;
         renderAll();
         askNextPlayer((p+1)%4, p);
