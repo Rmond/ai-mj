@@ -727,6 +727,9 @@
         const hand = playersHand[aiIdx];
         let discardTile = null;
         const cfg = aiConfigs[aiIdx];
+        
+        prepareAIPrompt(aiIdx, hand);
+        
         if(cfg.url) {
             try {
                 discardTile = await callAI(aiIdx, hand, cfg);
@@ -734,6 +737,7 @@
         }
         if(!discardTile || !hand.includes(discardTile)) {
             discardTile = hand[Math.floor(Math.random()*hand.length)];
+            console.log(`随机选择：${discardTile}`);
         }
 
         const idx = playersHand[aiIdx].indexOf(discardTile);
@@ -753,16 +757,48 @@
         for (let d of discardHistory) {
             discardByPlayer[d.player].push(d.tile);
         }
+        
+        const relativeNames = ['上家', '对家', '下家'];
         let discardDesc = '';
+        
+        if (discardByPlayer[aiIdx].length > 0) {
+            discardDesc += `自己：${discardByPlayer[aiIdx].join('、')}；`;
+        }
+        
         for (let p = 0; p < 4; p++) {
+            if (p === aiIdx) continue;
             if (discardByPlayer[p].length > 0) {
-                discardDesc += `${playerNames[p]}：${discardByPlayer[p].join('、')}；`;
+                let relativePos;
+                if (aiIdx === 1) {
+                    if (p === 0) relativePos = 0;
+                    else if (p === 2) relativePos = 2;
+                    else relativePos = 1;
+                } else if (aiIdx === 2) {
+                    if (p === 1) relativePos = 0;
+                    else if (p === 3) relativePos = 2;
+                    else relativePos = 1;
+                } else {
+                    if (p === 2) relativePos = 0;
+                    else if (p === 0) relativePos = 2;
+                    else relativePos = 1;
+                }
+                const name = relativeNames[relativePos];
+                discardDesc += `${name}：${discardByPlayer[p].join('、')}；`;
             }
         }
+        
         if (discardDesc === '') discardDesc = '尚无弃牌';
         else discardDesc = '所有已打出的牌：' + discardDesc;
 
         const prompt = `你是一个麻将AI。手牌：${hand.join(',')}。${discardDesc}。请选择一张牌打出，只输出牌名(如"1万"或"东")，不要其他文字。`;
+        
+        console.log(`=== AI${aiIdx} 调用配置 ===`);
+        console.log(`API URL: ${cfg.url}`);
+        console.log(`Model: ${cfg.model || 'gpt-3.5-turbo'}`);
+        console.log(`Key: ${cfg.key ? '已配置' : '未配置'}`);
+        console.log(`Prompt: ${prompt}`);
+        console.log('=====================');
+        
         const body = {
             model: cfg.model || 'gpt-3.5-turbo',
             messages: [{role:'user', content: prompt}],
@@ -780,7 +816,57 @@
         const data = await resp.json();
         const content = data.choices?.[0]?.message?.content || '';
         const match = content.match(/[^\s,，]+/);
+        console.log(`AI${aiIdx} 返回结果：${match ? match[0] : '无效'}`);
         return match ? match[0] : null;
+    }
+
+    function prepareAIPrompt(aiIdx, hand) {
+        const discardByPlayer = [[], [], [], []];
+        for (let d of discardHistory) {
+            discardByPlayer[d.player].push(d.tile);
+        }
+        
+        const relativeNames = ['上家', '对家', '下家'];
+        let discardDesc = '';
+        
+        if (discardByPlayer[aiIdx].length > 0) {
+            discardDesc += `自己：${discardByPlayer[aiIdx].join('、')}；`;
+        }
+        
+        for (let p = 0; p < 4; p++) {
+            if (p === aiIdx) continue;
+            if (discardByPlayer[p].length > 0) {
+                let relativePos;
+                if (aiIdx === 1) {
+                    if (p === 0) relativePos = 0;
+                    else if (p === 2) relativePos = 2;
+                    else relativePos = 1;
+                } else if (aiIdx === 2) {
+                    if (p === 1) relativePos = 0;
+                    else if (p === 3) relativePos = 2;
+                    else relativePos = 1;
+                } else {
+                    if (p === 2) relativePos = 0;
+                    else if (p === 0) relativePos = 2;
+                    else relativePos = 1;
+                }
+                const name = relativeNames[relativePos];
+                discardDesc += `${name}：${discardByPlayer[p].join('、')}；`;
+            }
+        }
+        
+        if (discardDesc === '') discardDesc = '尚无弃牌';
+        else discardDesc = '所有已打出的牌：' + discardDesc;
+
+        const prompt = `你是一个麻将AI。手牌：${hand.join(',')}。${discardDesc}。请选择一张牌打出，只输出牌名(如"1万"或"东")，不要其他文字。`;
+        
+        console.log(`=== AI${aiIdx} 收到的信息 ===`);
+        console.log(`手牌：${hand.join(',')}`);
+        console.log(discardDesc);
+        console.log(`完整提示：${prompt}`);
+        console.log('========================');
+        
+        return prompt;
     }
 
     function gameOver(reason) {

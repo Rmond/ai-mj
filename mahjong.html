@@ -461,14 +461,14 @@
                 </div>
             </div>
             <div style="grid-area: 2/1/3/2;">
-                <div class="player-card ai-card" id="ai3card">
-                    <div class="player-header" id="ai3header">
+                <div class="player-card ai-card" id="ai1card">
+                    <div class="player-header" id="ai1header">
                         <span class="avatar">🤖</span>
-                        <span class="player-name">AI 上家</span>
-                        <span class="hand-count" id="ai3count">13</span>
+                        <span class="player-name">AI 下家</span>
+                        <span class="hand-count" id="ai1count">13</span>
                     </div>
-                    <div class="flower-area" id="ai3flower"></div>
-                    <div class="meld-area" id="ai3meld"></div>
+                    <div class="flower-area" id="ai1flower"></div>
+                    <div class="meld-area" id="ai1meld"></div>
                 </div>
             </div>
             <div style="grid-area: 2/2/3/3;">
@@ -481,14 +481,14 @@
                 </div>
             </div>
             <div style="grid-area: 2/3/3/4;">
-                <div class="player-card ai-card" id="ai1card">
-                    <div class="player-header" id="ai1header">
+                <div class="player-card ai-card" id="ai3card">
+                    <div class="player-header" id="ai3header">
                         <span class="avatar">🤖</span>
-                        <span class="player-name">AI 下家</span>
-                        <span class="hand-count" id="ai1count">13</span>
+                        <span class="player-name">AI 上家</span>
+                        <span class="hand-count" id="ai3count">13</span>
                     </div>
-                    <div class="flower-area" id="ai1flower"></div>
-                    <div class="meld-area" id="ai1meld"></div>
+                    <div class="flower-area" id="ai3flower"></div>
+                    <div class="meld-area" id="ai3meld"></div>
                 </div>
             </div>
             <div style="grid-area: 3/2/4/3;">
@@ -517,25 +517,25 @@
             <div id="eatChoiceButtons"></div>
             <button id="cancelEatChoice">取消</button>
         </div>
-    </div>
-    <div id="aiConfigPopup" class="ai-config-popup" style="display: none;">
-        <div class="popup-content">
-            <h3>配置 AI <span id="aiConfigPlayerName"></span></h3>
-            <div class="config-item">
-                <label>API URL:</label>
-                <input type="text" id="aiApiUrl" placeholder="API地址">
-            </div>
-            <div class="config-item">
-                <label>模型名称:</label>
-                <input type="text" id="aiModelName" placeholder="模型">
-            </div>
-            <div class="config-item">
-                <label>API Key:</label>
-                <input type="text" id="aiSystemPrompt" placeholder="API Key">
-            </div>
-            <div class="popup-buttons">
-                <button class="popup-btn cancel-btn" id="cancelAiConfig">取消</button>
-                <button class="popup-btn save-btn" id="saveAiConfig">保存并关闭</button>
+        <div id="aiConfigPopup" class="ai-config-popup" style="display: none;">
+            <div class="popup-content">
+                <h3>配置 AI <span id="aiConfigPlayerName"></span></h3>
+                <div class="config-item">
+                    <label>API URL:</label>
+                    <input type="text" id="aiApiUrl" placeholder="API地址">
+                </div>
+                <div class="config-item">
+                    <label>模型名称:</label>
+                    <input type="text" id="aiModelName" placeholder="模型">
+                </div>
+                <div class="config-item">
+                    <label>API Key:</label>
+                    <input type="text" id="aiSystemPrompt" placeholder="API Key">
+                </div>
+                <div class="popup-buttons">
+                    <button class="popup-btn cancel-btn" id="cancelAiConfig">取消</button>
+                    <button class="popup-btn save-btn" id="saveAiConfig">保存并关闭</button>
+                </div>
             </div>
         </div>
     </div>
